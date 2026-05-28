@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>그물이어라 — 폐어망·폐어구 제보·수거 플랫폼</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+:root{
+  --bg:#020c18;--bg-card:#061422;--bg-up:#0c1e30;--bg-glass:rgba(6,20,34,.88);
+  --txt:#deeaf8;--txt2:#6b8fa8;--txt3:#2d4a60;
+  --border:rgba(30,100,180,.14);--border-h:rgba(30,100,180,.35);
+  --ocean:#1a8fe3;--ocean-d:rgba(26,143,227,.13);
+  --teal:#00b39f;--teal-d:rgba(0,179,159,.13);
+  --coral:#ff6b35;--coral-d:rgba(255,107,53,.13);
+  --st-found:#42a5f5;--st-found-d:rgba(66,165,245,.15);
+  --st-req:#ff9800;--st-req-d:rgba(255,152,0,.15);
+  --st-prog:#ffd54f;--st-prog-d:rgba(255,213,79,.15);
+  --st-done:#66bb6a;--st-done-d:rgba(102,187,106,.15);
+  --c-high:#ef5350;--c-high-d:rgba(239,83,80,.13);
+  --c-med:#ff9800;--c-med-d:rgba(255,152,0,.13);
+  --c-low:#66bb6a;--c-low-d:rgba(102,187,106,.13);
+  --font-d:'Space Grotesk',sans-serif;--font-b:'Noto Sans KR',sans-serif;
+  --nav:68px;--ease:cubic-bezier(.16,1,.3,1);
+}
+[data-theme="light"]{
+  --bg:#eef5ff;--bg-card:#fff;--bg-up:#ddeaf8;--bg-glass:rgba(238,245,255,.92);
+  --txt:#061422;--txt2:#3a5a78;--txt3:#6b8fa8;
+  --border:rgba(26,143,227,.16);--border-h:rgba(26,143,227,.4);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--txt);font-family:var(--font-b);line-height:1.65;overflow-x:hidden;transition:background .35s,color .35s;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--ocean);border-radius:2px;}
+
+/* NAV */
+.nav{position:fixed;top:0;left:0;right:0;height:var(--nav);z-index:1000;
+  display:flex;align-items:center;padding:0 clamp(1.2rem,4vw,3.5rem);
+  background:transparent;transition:background .4s,border-color .4s;border-bottom:1px solid transparent;}
+.nav.scrolled{background:var(--bg-glass);backdrop-filter:blur(20px);border-bottom-color:var(--border);}
+.nav-logo{display:flex;align-items:center;gap:.55em;text-decoration:none;font-family:var(--font-d);font-weight:700;font-size:1.1rem;color:var(--txt);}
+.nav-logo-ic{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--ocean),var(--teal));display:flex;align-items:center;justify-content:center;font-size:1.05rem;}
+.nav-links{display:flex;gap:1.8rem;margin-left:2.2rem;list-style:none;}
+.nav-links a{color:var(--txt2);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s;}
+.nav-links a:hover{color:var(--txt);}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:.8rem;}
+.theme-btn{background:var(--bg-up);border:1px solid var(--border);color:var(--txt2);border-radius:8px;padding:.38em .75em;font-size:.88rem;cursor:pointer;transition:all .2s;}
+.btn-nav-cta{background:linear-gradient(135deg,var(--ocean),var(--teal));color:#fff;border:none;border-radius:9px;padding:.42em 1.15em;font-size:.82rem;font-weight:700;font-family:var(--font-b);cursor:pointer;transition:all .25s;}
+.btn-nav-cta:hover{transform:translateY(-1px);}
+
+/* BG */
+.orb{position:absolute;border-radius:50%;filter:blur(110px);pointer-events:none;z-index:0;}
+.orb-ocean{background:radial-gradient(circle,rgba(26,143,227,.45) 0%,transparent 70%);}
+.orb-teal{background:radial-gradient(circle,rgba(0,179,159,.38) 0%,transparent 70%);}
+.orb-coral{background:radial-gradient(circle,rgba(255,107,53,.32) 0%,transparent 70%);}
+@keyframes orbFloat{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(2%,3%) scale(1.06);}}
+.orb{animation:orbFloat 14s ease-in-out infinite;}
+.orb:nth-child(2){animation-delay:-6s;}.orb:nth-child(3){animation-delay:-10s;}
+.grid-ov{position:absolute;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(26,143,227,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(26,143,227,.015) 1px,transparent 1px);background-size:64px 64px;}
+.bubble{position:absolute;border-radius:50%;pointer-events:none;z-index:1;background:rgba(26,143,227,.18);border:1px solid rgba(26,143,227,.28);animation:floatUp linear infinite;}
+@keyframes floatUp{0%{transform:translateY(0) scale(1);opacity:.55;}100%{transform:translateY(-90vh) scale(.4);opacity:0;}}
+.wave-bot{position:absolute;bottom:-1px;left:0;right:0;z-index:2;line-height:0;}
+.wave-bot svg{display:block;width:100%;height:80px;}
+
+/* HERO */
+.hero{position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:calc(var(--nav)+3rem) 2rem 8rem;overflow:hidden;}
+.hero-inner{position:relative;z-index:3;max-width:860px;}
+.hero h1{font-family:var(--font-d);font-size:clamp(1.75rem,4.5vw,3.2rem);font-weight:700;line-height:1.18;letter-spacing:-.025em;margin-bottom:.45em;}
+.hero h1 em{font-style:normal;background:linear-gradient(90deg,var(--ocean),var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.hero-sub{font-size:clamp(.88rem,2vw,1.05rem);color:var(--txt2);margin:0 auto 2.2rem;line-height:1.78;}
+.hero-sub strong{color:var(--teal);font-weight:500;}
+.hero-cta{display:flex;gap:.8rem;justify-content:center;flex-wrap:wrap;margin-bottom:3.2rem;}
+.btn-prim{background:linear-gradient(135deg,var(--ocean),var(--teal));color:#fff;border:none;border-radius:12px;padding:.75em 2em;font-size:.92rem;font-weight:700;font-family:var(--font-b);cursor:pointer;transition:all .3s var(--ease);box-shadow:0 0 28px rgba(26,143,227,.28);}
+.btn-prim:hover{transform:translateY(-3px);box-shadow:0 10px 36px rgba(26,143,227,.45);}
+.btn-teal{background:var(--teal-d);border:1px solid rgba(0,179,159,.3);color:var(--teal);border-radius:12px;padding:.75em 2em;font-size:.92rem;font-weight:700;font-family:var(--font-b);cursor:pointer;transition:all .3s;}
+.btn-teal:hover{background:rgba(0,179,159,.22);transform:translateY(-2px);}
+
+/* STAT CARDS */
+.hero-stats{display:flex;gap:.85rem;justify-content:center;flex-wrap:wrap;}
+.stat-card{background:var(--bg-glass);border:1px solid var(--border);border-radius:15px;padding:1rem 1.5rem;text-align:left;backdrop-filter:blur(10px);transition:border-color .3s,transform .3s;}
+.stat-card:hover{border-color:var(--border-h);transform:translateY(-2px);}
+.stat-val{font-family:var(--font-d);font-size:1.85rem;font-weight:700;color:var(--txt);line-height:1;}
+.stat-val sup{font-size:.85rem;color:var(--ocean);}
+.stat-lbl{font-size:.7rem;color:var(--txt3);margin-top:.32em;letter-spacing:.05em;}
+
+/* SECTION */
+section{position:relative;}
+.si{position:relative;z-index:2;padding:clamp(4rem,7vw,7rem) clamp(1.2rem,4vw,3.5rem);max-width:1300px;margin:0 auto;}
+.sh{margin-bottom:2.8rem;}
+.stag{font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ocean);margin-bottom:.5em;}
+.stitle{font-family:var(--font-d);font-size:clamp(1.5rem,3.8vw,2.35rem);font-weight:700;line-height:1.22;letter-spacing:-.025em;}
+.sdesc{color:var(--txt2);font-size:.9rem;margin-top:.65rem;max-width:54ch;line-height:1.75;}
+.sec-alt{background:var(--bg-card);}
+.sec-main{background:var(--bg);}
+
+/* SPECIES */
+.species-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.4rem;}
+.sp-card{border:1px solid var(--border);border-radius:20px;overflow:hidden;transition:all .4s var(--ease);}
+.sp-card:hover{transform:translateY(-6px);border-color:var(--border-h);box-shadow:0 20px 56px rgba(0,0,0,.45);}
+.sp-img{height:160px;display:flex;align-items:center;justify-content:center;font-size:4.5rem;position:relative;overflow:hidden;}
+.sp-img::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,var(--bg-card));}
+.sp-body{padding:1.3rem;}
+.sp-status{display:inline-flex;font-size:.67rem;font-weight:700;padding:.18em .7em;border-radius:4px;margin-bottom:.6em;}
+.sp-status.critical{background:rgba(239,83,80,.15);color:#ef5350;border:1px solid rgba(239,83,80,.25);}
+.sp-status.endangered{background:rgba(255,152,0,.15);color:#ff9800;border:1px solid rgba(255,152,0,.25);}
+.sp-name{font-size:1.1rem;font-weight:700;margin-bottom:.18em;}
+.sp-sci{font-size:.72rem;color:var(--txt3);font-style:italic;margin-bottom:.65em;}
+.sp-desc{font-size:.8rem;color:var(--txt2);line-height:1.65;margin-bottom:.85em;}
+.sp-impact{background:var(--bg-up);border-radius:9px;padding:.65rem .9rem;font-size:.75rem;color:var(--txt2);border-left:3px solid var(--coral);}
+.sp-impact strong{color:var(--coral);}
+
+/* HOW-TO */
+.how-flow{display:flex;align-items:stretch;position:relative;}
+.how-flow::before{content:'';position:absolute;top:28px;left:28px;right:28px;height:2px;background:linear-gradient(90deg,var(--ocean),var(--teal));opacity:.25;z-index:0;}
+.how-step{flex:1;padding:1.5rem 1rem;text-align:center;position:relative;z-index:1;}
+.how-num{width:56px;height:56px;border-radius:50%;margin:0 auto .9rem;display:flex;align-items:center;justify-content:center;font-size:1.4rem;border:2px solid var(--border);background:var(--bg-card);transition:border-color .3s;}
+.how-step:hover .how-num{border-color:var(--ocean);}
+.how-arrow{display:flex;align-items:center;padding-top:28px;color:var(--txt3);font-size:1.2rem;}
+.how-ttl{font-size:.88rem;font-weight:700;color:var(--txt);margin-bottom:.3em;}
+.how-desc{font-size:.76rem;color:var(--txt2);line-height:1.55;}
+
+/* MAP */
+.map-ctrl{display:flex;gap:.55rem;flex-wrap:wrap;margin-bottom:1.1rem;}
+.flt-btn{padding:.35em 1.1em;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--txt2);font-size:.78rem;font-family:var(--font-b);cursor:pointer;transition:all .22s;}
+.flt-btn.all.on{background:var(--ocean-d);border-color:var(--ocean);color:var(--ocean);}
+.flt-btn.found.on{background:var(--st-found-d);border-color:var(--st-found);color:var(--st-found);}
+.flt-btn.req.on{background:var(--st-req-d);border-color:var(--st-req);color:var(--st-req);}
+.flt-btn.prog.on{background:var(--st-prog-d);border-color:var(--st-prog);color:var(--st-prog);}
+.flt-btn.done.on{background:var(--st-done-d);border-color:var(--st-done);color:var(--st-done);}
+.map-layout{display:grid;grid-template-columns:1fr 340px;gap:1.3rem;}
+.map-wrap{position:relative;}
+#map{height:540px;border-radius:18px;border:1px solid var(--border);overflow:hidden;}
+.map-overlay{position:absolute;inset:0;border-radius:18px;z-index:500;background:rgba(2,12,24,.6);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.7rem;cursor:pointer;backdrop-filter:blur(3px);transition:opacity .4s;}
+.map-overlay.gone{opacity:0;pointer-events:none;}
+.map-overlay-icon{font-size:2.4rem;}
+.map-overlay-txt{font-size:.85rem;color:var(--txt2);}
+.map-legend{display:flex;gap:1.2rem;margin-top:.8rem;flex-wrap:wrap;}
+.leg-item{display:flex;align-items:center;gap:.45em;font-size:.74rem;color:var(--txt2);}
+.leg-dot{width:10px;height:10px;border-radius:50%;}
+.map-sidebar{background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:1.3rem;overflow-y:auto;max-height:540px;}
+.sidebar-ttl{font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3);margin-bottom:.9rem;}
+.pt-card{background:var(--bg-up);border:1px solid var(--border);border-radius:11px;padding:.9rem;margin-bottom:.55rem;cursor:pointer;transition:all .22s;}
+.pt-card:hover,.pt-card.on{border-color:var(--ocean);background:var(--ocean-d);}
+.pt-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:.38em;}
+.pt-id{font-size:.67rem;color:var(--txt3);font-family:var(--font-d);}
+.pt-name{font-size:.83rem;font-weight:600;color:var(--txt);margin-bottom:.2em;}
+.pt-type{font-size:.73rem;color:var(--txt2);}
+
+/* BADGES */
+.sbadge{font-size:.62rem;font-weight:700;letter-spacing:.05em;padding:.16em .62em;border-radius:5px;border:1px solid;}
+.sbadge.found{background:var(--st-found-d);color:var(--st-found);border-color:rgba(66,165,245,.28);}
+.sbadge.requested{background:var(--st-req-d);color:var(--st-req);border-color:rgba(255,152,0,.28);}
+.sbadge.progress{background:var(--st-prog-d);color:var(--st-prog);border-color:rgba(255,213,79,.28);}
+.sbadge.done{background:var(--st-done-d);color:var(--st-done);border-color:rgba(102,187,106,.28);}
+
+/* LEAFLET */
+.leaflet-popup-content-wrapper{background:var(--bg-up)!important;border:1px solid rgba(26,143,227,.22)!important;border-radius:14px!important;box-shadow:0 10px 40px rgba(0,0,0,.65)!important;color:var(--txt)!important;padding:0!important;}
+.leaflet-popup-content{margin:0!important;width:220px!important;}
+.leaflet-popup-tip{background:var(--bg-up)!important;}
+.leaflet-popup-close-button{color:var(--txt3)!important;top:9px!important;right:9px!important;}
+.pop-body{padding:1rem;}
+.pop-id{font-size:.64rem;color:var(--txt3);font-family:var(--font-d);margin-bottom:.2em;}
+.pop-name{font-weight:700;font-size:.88rem;margin-bottom:.55em;}
+.pop-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:.28em;font-size:.75rem;}
+.pop-lbl{color:var(--txt3);}
+.pop-val{color:var(--txt2);}
+
+/* FORMS */
+.form-layout{display:grid;grid-template-columns:1fr 420px;gap:3rem;align-items:start;}
+.form-card{background:var(--bg-card);border:1px solid var(--border);border-radius:22px;padding:2.2rem;}
+.form-row{margin-bottom:1.2rem;}
+.form-lbl{display:block;font-size:.72rem;font-weight:700;letter-spacing:.07em;color:var(--txt2);text-transform:uppercase;margin-bottom:.48em;}
+.form-in,.form-sel,.form-ta{width:100%;background:var(--bg-up);border:1px solid var(--border);border-radius:10px;padding:.72em 1.05em;color:var(--txt);font-family:var(--font-b);font-size:.86rem;transition:border-color .22s;outline:none;}
+.form-in:focus,.form-sel:focus,.form-ta:focus{border-color:var(--ocean);}
+.form-ta{resize:vertical;min-height:90px;}
+.form-sel option{background:var(--bg-up);}
+.sev-row{display:flex;gap:.6rem;}
+.sev-btn{flex:1;padding:.6em;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--txt2);font-size:.78rem;font-family:var(--font-b);cursor:pointer;transition:all .2s;}
+.sev-btn.sev-h.on{background:var(--c-high-d);border-color:var(--c-high);color:var(--c-high);}
+.sev-btn.sev-m.on{background:var(--c-med-d);border-color:var(--c-med);color:var(--c-med);}
+.sev-btn.sev-l.on{background:var(--c-low-d);border-color:var(--c-low);color:var(--c-low);}
+.upload-zone{border:1.5px dashed var(--border);border-radius:11px;padding:1.8rem;text-align:center;cursor:pointer;transition:all .22s;}
+.upload-zone:hover{border-color:var(--ocean);background:var(--ocean-d);}
+.upload-icon{font-size:1.9rem;margin-bottom:.4rem;}
+.upload-txt{font-size:.77rem;color:var(--txt2);}
+.btn-sub{width:100%;background:linear-gradient(135deg,var(--ocean),var(--teal));color:#fff;border:none;border-radius:12px;padding:.88em;font-size:.92rem;font-weight:700;font-family:var(--font-b);cursor:pointer;transition:all .3s var(--ease);margin-top:.5rem;}
+.btn-sub:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(26,143,227,.42);}
+.fi-ttl{font-family:var(--font-d);font-size:1.55rem;font-weight:700;margin-bottom:.7rem;line-height:1.32;}
+.fi-desc{font-size:.88rem;color:var(--txt2);line-height:1.78;margin-bottom:1.8rem;}
+.fi-points{display:flex;flex-direction:column;gap:.95rem;}
+.fi-pt{display:flex;gap:.9em;align-items:flex-start;}
+.fi-ic{width:38px;height:38px;border-radius:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.05rem;}
+.fi-pt-ttl{font-size:.85rem;font-weight:700;margin-bottom:.2em;}
+.fi-pt-desc{font-size:.76rem;color:var(--txt2);line-height:1.52;}
+
+/* CERT */
+.cert-status-list{display:flex;flex-direction:column;gap:.7rem;margin-top:.9rem;}
+.cert-item{background:var(--bg-up);border:1px solid var(--border);border-radius:12px;padding:1rem 1.2rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+.cert-item-id{font-size:.67rem;color:var(--txt3);font-family:var(--font-d);}
+.cert-item-loc{font-size:.83rem;font-weight:600;}
+.cert-item-info{font-size:.74rem;color:var(--txt2);}
+.cert-item-right{display:flex;flex-direction:column;align-items:flex-end;gap:.35em;}
+.cert-reward{font-size:.78rem;font-weight:700;color:var(--teal);}
+.cert-status-badge{font-size:.62rem;font-weight:700;padding:.18em .65em;border-radius:5px;border:1px solid;white-space:nowrap;}
+.cst-review{background:var(--st-found-d);color:#42a5f5;border-color:rgba(66,165,245,.28);}
+.cst-ok{background:var(--st-done-d);color:#66bb6a;border-color:rgba(102,187,106,.28);}
+.cst-rej{background:var(--c-high-d);color:#ef5350;border-color:rgba(239,83,80,.28);}
+.cst-paid{background:var(--st-prog-d);color:#ffd54f;border-color:rgba(255,213,79,.28);}
+
+/* CHARTS */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.3rem;margin-bottom:1.5rem;}
+.chart-box{background:var(--bg-up);border:1px solid var(--border);border-radius:17px;padding:1.5rem;}
+.cbox-ttl{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3);margin-bottom:1.1rem;}
+.chart-wrap{position:relative;height:220px;}
+
+/* ACTIVITY */
+.act-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:2rem;}
+.act-stat{background:var(--bg-card);border:1px solid var(--border);border-radius:15px;padding:1.1rem 1.3rem;text-align:center;transition:all .3s;}
+.act-stat:hover{border-color:var(--border-h);transform:translateY(-2px);}
+.act-stat-val{font-family:var(--font-d);font-size:1.75rem;font-weight:700;line-height:1;margin-bottom:.25em;}
+.act-stat-lbl{font-size:.68rem;color:var(--txt3);}
+.act-tabs{display:flex;gap:.5rem;margin-bottom:1.5rem;}
+.act-tab{padding:.4em 1.1em;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--txt2);font-size:.8rem;font-family:var(--font-b);cursor:pointer;transition:all .2s;}
+.act-tab.on{background:var(--ocean-d);border-color:var(--ocean);color:var(--ocean);}
+.act-panel{display:none;}
+.act-panel.on{display:block;}
+.act-history-item{background:var(--bg-up);border:1px solid var(--border);border-radius:11px;padding:.85rem 1.1rem;margin-bottom:.55rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+.ahi-id{font-size:.67rem;color:var(--txt3);font-family:var(--font-d);margin-bottom:.18em;}
+.ahi-loc{font-size:.83rem;font-weight:600;}
+.ahi-meta{font-size:.73rem;color:var(--txt2);margin-top:.12em;}
+
+/* BADGES */
+.badge-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:1rem;margin-top:1.5rem;}
+.badge-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.1rem .8rem;text-align:center;transition:all .3s;}
+.badge-card.earned{border-color:rgba(255,213,79,.3);}
+.badge-card.earned:hover{transform:translateY(-3px);}
+.badge-card.locked{opacity:.4;}
+.badge-icon{font-size:2rem;margin-bottom:.55em;display:block;}
+.badge-name{font-size:.75rem;font-weight:700;margin-bottom:.2em;}
+.badge-desc{font-size:.65rem;color:var(--txt2);line-height:1.45;}
+.badge-date{font-size:.62rem;color:var(--txt3);margin-top:.3em;}
+
+/* KEYRING */
+.reward-sec{background:var(--bg-card);}
+.eligibility-banner{background:linear-gradient(135deg,var(--ocean-d),var(--teal-d));border:1px solid var(--border-h);border-radius:16px;padding:1.4rem 1.8rem;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;margin-bottom:2.5rem;flex-wrap:wrap;}
+.elig-ttl{font-size:.9rem;font-weight:700;}
+.elig-desc{font-size:.78rem;color:var(--txt2);}
+.elig-conds{display:flex;gap:1rem;margin-top:.4rem;flex-wrap:wrap;}
+.elig-cond{display:flex;align-items:center;gap:.4em;font-size:.75rem;color:var(--txt2);}
+.elig-cond .check{color:var(--teal);font-weight:700;}
+.elig-status{background:rgba(102,187,106,.15);border:1px solid rgba(102,187,106,.28);border-radius:9px;padding:.5em 1.1em;font-size:.8rem;font-weight:700;color:#66bb6a;}
+.keyring-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;}
+.kr-card{border:1px solid var(--border);border-radius:22px;overflow:hidden;transition:all .4s var(--ease);}
+.kr-card:hover{transform:translateY(-6px);border-color:var(--border-h);box-shadow:0 22px 60px rgba(0,0,0,.45);}
+.kr-img{height:200px;display:flex;align-items:center;justify-content:center;position:relative;font-size:5.5rem;}
+.kr-img::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,transparent 45%,var(--bg-card));}
+.kr-body{padding:1.4rem;}
+.kr-name{font-size:1.1rem;font-weight:700;margin-bottom:.3em;}
+.kr-desc{font-size:.8rem;color:var(--txt2);line-height:1.6;margin-bottom:1rem;}
+.kr-stock{display:flex;align-items:center;gap:.4em;font-size:.75rem;color:var(--txt2);margin-bottom:1.1rem;}
+.kr-stock-dot{width:7px;height:7px;border-radius:50%;background:#66bb6a;box-shadow:0 0 6px #66bb6a;}
+.btn-kr{width:100%;padding:.7em;border-radius:11px;border:1px solid var(--border);background:var(--bg-up);color:var(--txt2);font-size:.82rem;font-weight:700;font-family:var(--font-b);cursor:pointer;transition:all .25s;}
+.btn-kr.eligible{background:linear-gradient(135deg,var(--ocean),var(--teal));color:#fff;border-color:transparent;}
+.btn-kr.eligible:hover{transform:translateY(-2px);}
+
+/* MODAL */
+.modal-bg{position:fixed;inset:0;z-index:2000;background:rgba(2,12,24,.8);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:1.5rem;opacity:0;pointer-events:none;transition:opacity .3s;}
+.modal-bg.open{opacity:1;pointer-events:all;}
+.modal{background:var(--bg-card);border:1px solid var(--border);border-radius:22px;padding:2.2rem;width:100%;max-width:480px;transform:translateY(20px) scale(.97);transition:transform .3s var(--ease);}
+.modal-bg.open .modal{transform:none;}
+.modal-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;}
+.modal-ttl{font-size:1.1rem;font-weight:700;}
+.modal-close{background:var(--bg-up);border:1px solid var(--border);color:var(--txt2);border-radius:7px;padding:.28em .65em;cursor:pointer;font-size:.85rem;}
+
+/* FOOTER */
+footer{background:var(--bg-card);border-top:1px solid var(--border);padding:2.8rem clamp(1.2rem,4vw,3.5rem);}
+.foot-in{max-width:1300px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1.2rem;}
+.foot-logo{display:flex;align-items:center;gap:.55em;}
+.foot-logo-tx{font-weight:700;font-size:.95rem;}
+.foot-desc{font-size:.72rem;color:var(--txt3);margin-top:.28em;}
+.foot-links{display:flex;gap:1.3rem;margin-bottom:.45em;justify-content:flex-end;}
+.foot-links a{color:var(--txt3);text-decoration:none;font-size:.73rem;transition:color .2s;}
+.foot-links a:hover{color:var(--txt2);}
+.foot-copy{font-size:.7rem;color:var(--txt3);text-align:right;}
+
+/* TOAST */
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(90px);background:var(--teal);color:#fff;padding:.55em 1.6em;border-radius:11px;font-size:.83rem;font-weight:700;z-index:9999;transition:transform .4s var(--ease);pointer-events:none;white-space:nowrap;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+/* REVEAL */
+.rv{opacity:0;transform:translateY(30px);transition:opacity .7s var(--ease),transform .7s var(--ease);}
+.rv.vis{opacity:1;transform:none;}
+.d1{transition-delay:.06s}.d2{transition-delay:.13s}.d3{transition-delay:.2s}
+.d4{transition-delay:.27s}.d5{transition-delay:.34s}.d6{transition-delay:.41s}
+
+/* ── ADMIN PANEL ── */
+.admin-overlay{position:fixed;inset:0;z-index:3000;background:rgba(2,12,24,.97);backdrop-filter:blur(12px);display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .3s;}
+.admin-overlay.open{opacity:1;pointer-events:all;}
+.admin-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 2rem;border-bottom:1px solid var(--border);background:var(--bg-card);flex-shrink:0;}
+.admin-title{font-family:var(--font-d);font-size:1rem;font-weight:700;display:flex;align-items:center;gap:.5em;}
+.admin-body{flex:1;overflow-y:auto;padding:1.5rem 2rem;max-width:1100px;margin:0 auto;width:100%;}
+.admin-tabs{display:flex;gap:.5rem;margin-bottom:1.5rem;}
+.admin-tab{padding:.4em 1.2em;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--txt2);font-size:.8rem;font-family:var(--font-b);cursor:pointer;transition:all .2s;}
+.admin-tab.on{background:var(--ocean-d);border-color:var(--ocean);color:var(--ocean);}
+.admin-panel{display:none;}
+.admin-panel.on{display:block;}
+.admin-stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.8rem;}
+.admin-stat{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:.9rem;text-align:center;}
+.admin-stat-val{font-family:var(--font-d);font-size:1.6rem;font-weight:700;color:var(--ocean);}
+.admin-stat-lbl{font-size:.67rem;color:var(--txt3);margin-top:.2em;}
+.admin-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1.2rem;margin-bottom:1rem;display:grid;grid-template-columns:110px 1fr auto;gap:1.2rem;align-items:start;transition:border-color .2s;}
+.admin-card:hover{border-color:var(--border-h);}
+.admin-thumb{width:110px;height:85px;border-radius:9px;overflow:hidden;border:1px solid var(--border);background:var(--bg-up);display:flex;align-items:center;justify-content:center;font-size:1.8rem;cursor:pointer;flex-shrink:0;}
+.admin-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.admin-info-id{font-size:.65rem;color:var(--txt3);font-family:var(--font-d);margin-bottom:.2em;}
+.admin-info-loc{font-size:.88rem;font-weight:700;margin-bottom:.3em;}
+.admin-info-meta{font-size:.75rem;color:var(--txt2);line-height:1.75;}
+.admin-ai-box{background:var(--bg-up);border-radius:8px;padding:.6rem .85rem;margin-top:.55rem;font-size:.74rem;line-height:1.65;color:var(--txt2);}
+.admin-ai-lbl{font-size:.63rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin-bottom:.25em;}
+.admin-actions{display:flex;flex-direction:column;gap:.5rem;min-width:85px;}
+.btn-approve{background:rgba(102,187,106,.15);border:1px solid rgba(102,187,106,.3);color:#66bb6a;border-radius:8px;padding:.45em .8em;font-size:.76rem;font-weight:700;font-family:var(--font-b);cursor:pointer;transition:all .2s;width:100%;}
+.btn-approve:hover{background:rgba(102,187,106,.28);}
+.btn-reject{background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.3);color:#ef5350;border-radius:8px;padding:.45em .8em;font-size:.76rem;font-weight:700;font-family:var(--font-b);cursor:pointer;transition:all .2s;width:100%;}
+.btn-reject:hover{background:rgba(239,83,80,.22);}
+.btn-view-photo{background:var(--ocean-d);border:1px solid rgba(26,143,227,.3);color:var(--ocean);border-radius:8px;padding:.45em .8em;font-size:.76rem;font-weight:700;font-family:var(--font-b);cursor:pointer;transition:all .2s;width:100%;}
+.admin-login{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;}
+.admin-login-box{background:var(--bg-card);border:1px solid var(--border);border-radius:20px;padding:2.5rem;width:100%;max-width:340px;text-align:center;}
+.admin-login-title{font-size:1.1rem;font-weight:700;margin-bottom:.3em;}
+.admin-login-sub{font-size:.8rem;color:var(--txt2);margin-bottom:1.5rem;}
+.admin-empty{text-align:center;padding:3rem;color:var(--txt3);font-size:.9rem;}
+
+/* ── AI ANALYSIS ── */
+.ai-loading{display:none;margin-top:1rem;background:var(--bg-up);border:1px solid var(--border);border-radius:12px;padding:1.2rem;}
+.ai-loading.show{display:block;}
+.ai-step{display:flex;align-items:center;gap:.7em;font-size:.78rem;margin-bottom:.45em;opacity:.25;transition:opacity .5s,color .5s;}
+.ai-step.active{opacity:1;color:var(--ocean);}
+.ai-step.done{opacity:1;color:var(--teal);}
+.ai-step-icon{font-size:.9rem;width:18px;text-align:center;}
+.ai-progress{height:3px;background:var(--border);border-radius:2px;margin-top:.8rem;overflow:hidden;}
+.ai-progress-bar{height:100%;background:linear-gradient(90deg,var(--ocean),var(--teal));border-radius:2px;width:0%;transition:width .5s ease;}
+.ai-result{display:none;margin-top:1rem;border-radius:12px;padding:1.2rem;border:1px solid;}
+.ai-result.ok{display:block;background:rgba(102,187,106,.08);border-color:rgba(102,187,106,.25);}
+.ai-result.fail{display:block;background:rgba(239,83,80,.08);border-color:rgba(239,83,80,.25);}
+.ai-result-header{display:flex;align-items:center;gap:.55em;margin-bottom:.7rem;}
+.ai-result-icon{font-size:1.3rem;}
+.ai-result-title{font-size:.9rem;font-weight:700;}
+.ai-confidence{margin-left:auto;font-size:.75rem;font-weight:700;}
+.ai-result-body{font-size:.77rem;color:var(--txt2);line-height:1.8;}
+.ai-verdict{margin-top:.75rem;padding:.55rem .85rem;border-radius:8px;font-size:.78rem;font-weight:700;text-align:center;}
+.ai-verdict.ok{background:rgba(102,187,106,.15);color:#66bb6a;}
+.ai-verdict.fail{background:rgba(239,83,80,.12);color:#ef5350;}
+
+/* ── PHOTO PREVIEW ── */
+.photo-preview{display:none;margin-top:.65rem;border-radius:10px;overflow:hidden;border:1px solid var(--border);max-height:150px;}
+.photo-preview.show{display:block;}
+.photo-preview img{width:100%;height:150px;object-fit:cover;display:block;}
+
+/* ── LIGHTBOX ── */
+.lightbox{position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.94);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;}
+.lightbox.open{opacity:1;pointer-events:all;}
+.lightbox-img{max-width:90vw;max-height:88vh;border-radius:12px;object-fit:contain;}
+.lightbox-close{position:absolute;top:1.2rem;right:1.2rem;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:50%;width:42px;height:42px;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.lightbox-caption{position:absolute;bottom:1.5rem;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#fff;font-size:.8rem;padding:.4em 1em;border-radius:8px;white-space:nowrap;}
+
+/* RESPONSIVE */
+@media(max-width:1050px){
+  .map-layout,.form-layout{grid-template-columns:1fr;}
+  .map-sidebar{max-height:260px;}
+  .act-stats{grid-template-columns:repeat(3,1fr);}
+  .charts-grid,.species-grid{grid-template-columns:1fr;}
+  .keyring-grid{grid-template-columns:1fr 1fr;}
+  .how-flow{flex-direction:column;}
+  .how-flow::before,.how-arrow{display:none;}
+  .how-step{display:flex;align-items:flex-start;gap:1rem;text-align:left;padding:.9rem 1.2rem;}
+  .how-num{margin:0;flex-shrink:0;width:46px;height:46px;}
+  .nav-links{display:none;}
+  .badge-grid{grid-template-columns:repeat(3,1fr);}
+}
+@media(max-width:700px){
+  .act-stats{grid-template-columns:repeat(2,1fr);}
+  .keyring-grid{grid-template-columns:1fr;}
+  .hero-stats{flex-direction:column;align-items:stretch;}
+  .badge-grid{grid-template-columns:repeat(2,1fr);}
+  .eligibility-banner{flex-direction:column;}
+}
+  </style>
+</head>
+<body>
+
+<nav class="nav" id="nav">
+  <a class="nav-logo" href="#"><div class="nav-logo-ic">🌊</div>그물이어라</a>
+  <ul class="nav-links">
+    <li><a href="#map-sec">지도</a></li>
+    <li><a href="#report-sec">제보하기</a></li>
+    <li><a href="#cert-sec">수거인증</a></li>
+    <li><a href="#activity-sec">활동내역</a></li>
+    <li><a href="#reward-sec">키링리워드</a></li>
+    <li><a href="#" onclick="openAdminPanel();return false;" style="color:var(--txt3);">🔐 관리자</a></li>
+  </ul>
+  <div class="nav-right">
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+    <button class="btn-nav-cta" onclick="goTo('report-sec')">🎣 폐어망 제보</button>
+  </div>
+</nav>
+
+<section class="hero" id="hero">
+  <div class="orb orb-ocean" style="width:75vw;height:75vw;top:-35%;right:-22%;opacity:.16;"></div>
+  <div class="orb orb-teal" style="width:55vw;height:55vw;bottom:-25%;left:-18%;opacity:.14;"></div>
+  <div class="grid-ov"></div>
+  <div class="hero-inner">
+    <h1 class="rv d1">바다의 <em>쓰레기</em>를,<br>바다의 <em>보물</em>로</h1>
+    <p class="hero-sub rv d2">폐어망 <strong>발견·제보·수거</strong>에 동참하고 보상과 키링을 받으세요.</p>
+    <div class="hero-cta rv d3">
+      <button class="btn-prim" onclick="goTo('report-sec')">🎣 폐어망 제보하기</button>
+      <button class="btn-teal" onclick="goTo('cert-sec')">✅ 수거 인증하기</button>
+    </div>
+    <div class="hero-stats">
+      <div class="stat-card rv d4"><div class="stat-val"><span id="cnt1">0</span><sup>건</sup></div><div class="stat-lbl">누적 제보 수</div></div>
+      <div class="stat-card rv d4"><div class="stat-val"><span id="cnt2">0</span><sup>건</sup></div><div class="stat-lbl">처리 완료 건수</div></div>
+      <div class="stat-card rv d5"><div class="stat-val"><span id="cnt3">0</span><sup>톤</sup></div><div class="stat-lbl">수거된 폐어망 총량</div></div>
+      <div class="stat-card rv d5"><div class="stat-val"><span id="cnt4">0</span><sup>명</sup></div><div class="stat-lbl">참여 시민 수</div></div>
+      <div class="stat-card rv d6"><div class="stat-val"><span id="cnt5">0</span><sup>만원</sup></div><div class="stat-lbl">지급된 보상금</div></div>
+    </div>
+  </div>
+  <div class="wave-bot">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 80" preserveAspectRatio="none">
+      <path d="M0,40 C240,70 480,10 720,40 C960,70 1200,20 1440,40 L1440,80 L0,80 Z" fill="var(--bg-card)" opacity=".9"/>
+      <path d="M0,55 C200,30 400,65 720,55 C1000,45 1200,70 1440,55 L1440,80 L0,80 Z" fill="var(--bg-card)"/>
+    </svg>
+  </div>
+</section>
+
+<section class="sec-alt" id="species-sec">
+  <div class="si">
+    <div class="sh">
+      <p class="stag rv">해양 생물 보호</p>
+      <h2 class="stitle rv d1">폐어망 피해를 입는 생명들</h2>
+      <p class="sdesc rv d2">유령어업으로 매년 수많은 해양생물이 폐어망에 얽혀 목숨을 잃고 있습니다.</p>
+    </div>
+    <div class="species-grid" id="speciesGrid"></div>
+  </div>
+</section>
+
+<section class="sec-main" id="howto-sec">
+  <div class="orb orb-teal" style="width:40vw;height:40vw;bottom:-10%;left:-8%;opacity:.1;"></div>
+  <div class="grid-ov"></div>
+  <div class="si">
+    <div class="sh">
+      <p class="stag rv">참여 방법</p>
+      <h2 class="stitle rv d1">5단계로 바다를 지킵니다</h2>
+      <p class="sdesc rv d2">발견부터 키링 리워드까지, 간단한 과정으로 해양 환경 보호에 기여하세요.</p>
+    </div>
+    <div class="how-flow rv d2" id="howFlow"></div>
+  </div>
+</section>
+
+<section class="sec-alt" id="map-sec">
+  <div class="si">
+    <div class="sh">
+      <p class="stag rv">실시간 현황</p>
+      <h2 class="stitle rv d1">폐어망 발견 지도</h2>
+      <p class="sdesc rv d2">마커를 클릭하면 상세 정보를 확인할 수 있습니다.</p>
+    </div>
+    <div class="map-ctrl rv d2">
+      <button class="flt-btn all on" data-filter="all">전체 보기</button>
+      <button class="flt-btn found" data-filter="found">🔵 발견됨</button>
+      <button class="flt-btn req" data-filter="requested">🟠 수거요청</button>
+      <button class="flt-btn prog" data-filter="progress">🟡 수거진행중</button>
+      <button class="flt-btn done" data-filter="done">🟢 처리완료</button>
+    </div>
+    <div class="map-layout">
+      <div class="map-wrap">
+        <div id="map"></div>
+        <div class="map-overlay" id="mapOverlay"><div class="map-overlay-icon">🗺️</div><div class="map-overlay-txt">클릭하여 지도 조작 시작</div></div>
+        <div class="map-legend rv d3">
+          <div class="leg-item"><div class="leg-dot" style="background:#42a5f5;box-shadow:0 0 6px #42a5f5;"></div>발견됨</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#ff9800;box-shadow:0 0 6px #ff9800;"></div>수거요청</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#ffd54f;box-shadow:0 0 6px #ffd54f;"></div>수거진행중</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#66bb6a;box-shadow:0 0 6px #66bb6a;"></div>처리완료</div>
+        </div>
+      </div>
+      <div class="map-sidebar rv d3"><div class="sidebar-ttl">제보 목록</div><div id="ptList"></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="sec-main" id="report-sec">
+  <div class="si">
+    <div class="form-layout">
+      <div class="fi rv">
+        <p class="stag">폐어망 제보</p>
+        <div class="fi-ttl">발견한 폐어망을<br>지금 바로 신고하세요</div>
+        <p class="fi-desc">제보하신 위치 정보는 즉시 지도에 반영되며 담당 기관에 알림이 전송됩니다.</p>
+        <div class="fi-points">
+          <div class="fi-pt"><div class="fi-ic" style="background:var(--ocean-d);">📍</div><div><div class="fi-pt-ttl">GPS 기반 위치 등록</div><div class="fi-pt-desc">현재 위치를 자동 감지하거나 주소로 직접 입력할 수 있습니다.</div></div></div>
+          <div class="fi-pt"><div class="fi-ic" style="background:var(--teal-d);">📸</div><div><div class="fi-pt-ttl">현장 사진 첨부</div><div class="fi-pt-desc">사진이 있으면 수거 팀의 현장 판단 속도가 크게 향상됩니다.</div></div></div>
+          <div class="fi-pt"><div class="fi-ic" style="background:var(--coral-d);">⚡</div><div><div class="fi-pt-ttl">즉시 지도 반영</div><div class="fi-pt-desc">제보 즉시 지도에 마커가 생성되고 수거 요청이 발송됩니다.</div></div></div>
+        </div>
+      </div>
+      <div class="form-card rv d2">
+        <div class="form-row">
+          <label class="form-lbl">위치 (주소 또는 해역 명)</label>
+          <div style="display:flex;gap:.5rem;">
+            <input class="form-in" id="rpt-loc" type="text" placeholder="예: 제주 서귀포시 강정동 앞바다" style="flex:1;" />
+            <button onclick="getGPS()" style="background:var(--ocean-d);border:1px solid rgba(26,143,227,.3);color:var(--ocean);border-radius:10px;padding:.5em .85em;cursor:pointer;font-size:.78rem;font-family:var(--font-b);white-space:nowrap;">📍 GPS</button>
+          </div>
+        </div>
+        <div class="form-row"><label class="form-lbl">폐어구 종류</label><select class="form-sel"><option value="">선택해 주세요</option><option>유자망</option><option>자망</option><option>통발</option><option>연승</option><option>안강망</option><option>정치망</option><option>기타</option></select></div>
+        <div class="form-row"><label class="form-lbl">위험도</label><div class="sev-row"><button class="sev-btn sev-l" onclick="setSev(this)">🟢 낮음</button><button class="sev-btn sev-m" onclick="setSev(this)">🟠 보통</button><button class="sev-btn sev-h" onclick="setSev(this)">🔴 높음</button></div></div>
+        <div class="form-row"><label class="form-lbl">상세 설명</label><textarea class="form-ta" placeholder="발견 위치, 크기, 상태 등을 자세히 적어주세요."></textarea></div>
+        <div class="form-row"><label class="form-lbl">닉네임</label><input class="form-in" type="text" placeholder="예: 바다지킴이" /></div>
+        <div class="form-row"><label class="form-lbl">현장 사진</label><div class="upload-zone" onclick="triggerUpload('rpt-photo')"><input type="file" id="rpt-photo" accept="image/*" style="display:none" onchange="showFileName(this,'rpt-pname');showPhotoPreview(this,'rpt-prev')" /><div class="upload-icon">📷</div><div class="upload-txt" id="rpt-pname">클릭하거나 드래그 (JPG, PNG, 최대 10MB)</div></div><div class="photo-preview" id="rpt-prev"></div></div>
+        <button class="btn-sub" onclick="submitReport()">🎣 제보 접수하기</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec-alt" id="cert-sec">
+  <div class="orb orb-coral" style="width:35vw;height:35vw;top:-8%;right:-8%;opacity:.09;"></div>
+  <div class="grid-ov"></div>
+  <div class="si">
+    <div class="form-layout">
+      <div class="fi rv">
+        <p class="stag">수거 인증</p>
+        <div class="fi-ttl">직접 수거한 폐어구를<br>인증하고 보상받으세요</div>
+        <p class="fi-desc">수거 전·후 사진과 위치 정보를 제출하면 담당 기관이 검토 후 보상금을 지급합니다.</p>
+        <div class="fi-points">
+          <div class="fi-pt"><div class="fi-ic" style="background:var(--ocean-d);">🔄</div><div><div class="fi-pt-ttl">검증 프로세스</div><div class="fi-pt-desc">업로드 → 관리자 검토 → 승인 → 보상 지급 순으로 진행됩니다.</div></div></div>
+          <div class="fi-pt"><div class="fi-ic" style="background:var(--teal-d);">💰</div><div><div class="fi-pt-ttl">수거량 기반 보상</div><div class="fi-pt-desc">kg당 500원, 1회 최대 5만원. 승인 후 7일 이내 입금됩니다.</div></div></div>
+        </div>
+        <div style="margin-top:2rem;">
+          <div style="font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin-bottom:.8rem;">최근 수거 인증 내역</div>
+          <div class="cert-status-list" id="certList"></div>
+        </div>
+      </div>
+      <div class="form-card rv d2">
+        <div class="form-row"><label class="form-lbl">수거 전 사진</label><div class="upload-zone" onclick="triggerUpload('cert-before')"><input type="file" id="cert-before" accept="image/*" style="display:none" onchange="showFileName(this,'cb-name');showPhotoPreview(this,'cb-prev')" /><div class="upload-icon">📸</div><div class="upload-txt" id="cb-name">수거 전 사진 첨부</div></div><div class="photo-preview" id="cb-prev"></div></div>
+        <div class="form-row"><label class="form-lbl">수거 후 사진</label><div class="upload-zone" onclick="triggerUpload('cert-after')"><input type="file" id="cert-after" accept="image/*" style="display:none" onchange="showFileName(this,'ca-name');showPhotoPreview(this,'ca-prev')" /><div class="upload-icon">✅</div><div class="upload-txt" id="ca-name">수거 후 사진 첨부</div></div><div class="photo-preview" id="ca-prev"></div></div>
+        <div class="form-row"><label class="form-lbl">수거 위치</label><input class="form-in" id="cert-loc" type="text" placeholder="예: 경남 통영시 욕지면 앞바다" /></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;">
+          <div class="form-row"><label class="form-lbl">수거량 (kg)</label><input class="form-in" id="cert-kg" type="number" min="0.1" step="0.1" placeholder="예: 15.5" /></div>
+          <div class="form-row"><label class="form-lbl">수거 일시</label><input class="form-in" id="cert-date" type="datetime-local" /></div>
+        </div>
+        <div class="form-row"><label class="form-lbl">추가 설명 (선택)</label><textarea class="form-ta" placeholder="수거 방법, 협조 인원 등을 적어주세요." style="min-height:70px;"></textarea></div>
+        <button class="btn-sub" onclick="submitCert()" style="background:linear-gradient(135deg,var(--teal),var(--ocean));">✅ 수거 인증 제출하기</button>
+        <div class="ai-loading" id="certAiBox">
+          <div style="font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3);margin-bottom:.75rem;">🤖 AI 자동 분석 진행 중</div>
+          <div class="ai-step" id="ai-s1"><span class="ai-step-icon">📡</span> 이미지 업로드 확인 중</div>
+          <div class="ai-step" id="ai-s2"><span class="ai-step-icon">🎨</span> 색상 분포 분석 중</div>
+          <div class="ai-step" id="ai-s3"><span class="ai-step-icon">🔍</span> 물체 감지 알고리즘 실행 중</div>
+          <div class="ai-step" id="ai-s4"><span class="ai-step-icon">🕸️</span> 폐어망 패턴 데이터베이스 대조 중</div>
+          <div class="ai-step" id="ai-s5"><span class="ai-step-icon">📊</span> 최종 판정 생성 중</div>
+          <div class="ai-progress"><div class="ai-progress-bar" id="certAiBar"></div></div>
+        </div>
+        <div class="ai-result" id="certAiResult"></div>
+        <div style="margin-top:1.3rem;background:var(--bg-up);border-radius:11px;padding:1rem;">
+          <div style="font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin-bottom:.7rem;">검증 단계</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="text-align:center;flex:1;"><div>📤</div><div style="font-size:.65rem;color:var(--txt2);margin-top:.2em;">업로드</div></div>
+            <div style="flex:0 0 20px;height:1px;background:var(--border);"></div>
+            <div style="text-align:center;flex:1;"><div>🔍</div><div style="font-size:.65rem;color:var(--txt2);margin-top:.2em;">검토중</div></div>
+            <div style="flex:0 0 20px;height:1px;background:var(--border);"></div>
+            <div style="text-align:center;flex:1;"><div>✅</div><div style="font-size:.65rem;color:var(--txt2);margin-top:.2em;">승인</div></div>
+            <div style="flex:0 0 20px;height:1px;background:var(--border);"></div>
+            <div style="text-align:center;flex:1;"><div>💰</div><div style="font-size:.65rem;color:var(--txt2);margin-top:.2em;">지급완료</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec-main" id="activity-sec">
+  <div class="si">
+    <div class="sh">
+      <p class="stag rv">나의 활동</p>
+      <h2 class="stitle rv d1">활동 실적 대시보드</h2>
+      <p class="sdesc rv d2">지금까지의 해양보호 활동 내역과 보상 현황을 확인하세요.</p>
+    </div>
+    <div class="act-stats rv d2">
+      <div class="act-stat"><div class="act-stat-val" style="color:var(--ocean);"><span id="my-rpt">0</span><sup style="font-size:.9rem;">회</sup></div><div class="act-stat-lbl">제보 횟수</div></div>
+      <div class="act-stat"><div class="act-stat-val" style="color:var(--teal);"><span id="my-col">0</span><sup style="font-size:.9rem;">회</sup></div><div class="act-stat-lbl">수거 횟수</div></div>
+      <div class="act-stat"><div class="act-stat-val" style="color:var(--coral);"><span id="my-kg">0</span><sup style="font-size:.9rem;">kg</sup></div><div class="act-stat-lbl">누적 수거량</div></div>
+      <div class="act-stat"><div class="act-stat-val" style="color:#ffd54f;"><span id="my-pending">0</span><sup style="font-size:.9rem;">원</sup></div><div class="act-stat-lbl">지급 예정</div></div>
+      <div class="act-stat"><div class="act-stat-val" style="color:#66bb6a;"><span id="my-total">0</span><sup style="font-size:.9rem;">원</sup></div><div class="act-stat-lbl">누적 보상금</div></div>
+    </div>
+    <div class="charts-grid rv d3">
+      <div class="chart-box"><div class="cbox-ttl">월별 활동 현황 (2024.12 – 2025.05)</div><div class="chart-wrap"><canvas id="actBarChart"></canvas></div></div>
+      <div class="chart-box"><div class="cbox-ttl">수거된 폐어구 종류</div><div class="chart-wrap"><canvas id="actDonutChart"></canvas></div></div>
+    </div>
+    <div class="rv d3">
+      <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--txt3);margin-bottom:.3em;">획득한 뱃지</div>
+      <div style="font-size:.8rem;color:var(--txt2);">활동을 통해 특별 뱃지를 획득하세요.</div>
+      <div class="badge-grid" id="badgeGrid"></div>
+    </div>
+    <div class="rv d4" style="margin-top:2.5rem;">
+      <div class="act-tabs">
+        <button class="act-tab on" onclick="switchTab('reports',this)">📋 제보 내역</button>
+        <button class="act-tab" onclick="switchTab('collections',this)">✅ 수거 내역</button>
+      </div>
+      <div class="act-panel on" id="panel-reports"><div id="historyReports"></div></div>
+      <div class="act-panel" id="panel-collections"><div id="historyCollections"></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="reward-sec" id="reward-sec">
+  <div class="orb orb-ocean" style="width:40vw;height:40vw;top:-10%;right:-5%;opacity:.1;"></div>
+  <div class="grid-ov"></div>
+  <div class="si">
+    <div class="sh">
+      <p class="stag rv">키링 리워드</p>
+      <h2 class="stitle rv d1">수거 영웅에게 드리는 선물</h2>
+      <p class="sdesc rv d2">일정 기준 이상 폐어망을 수거한 시민께 해양생물 키링을 드립니다.</p>
+    </div>
+    <div class="eligibility-banner rv d2">
+      <div><div class="elig-ttl">🎁 키링 신청 자격</div><div class="elig-desc">아래 조건 중 하나 이상을 충족하면 신청할 수 있습니다.</div><div class="elig-conds"><div class="elig-cond"><span class="check">✓</span> 누적 수거량 10kg 이상</div><div class="elig-cond"><span class="check">✓</span> 승인된 수거 활동 5회 이상</div></div></div>
+      <div class="elig-status">🎉 신청 가능 상태</div>
+    </div>
+    <div class="keyring-grid" id="keyringGrid"></div>
+  </div>
+</section>
+
+<footer>
+  <div class="foot-in">
+    <div class="foot-logo"><div class="nav-logo-ic">🌊</div><div><div class="foot-logo-tx">그물이어라</div><div class="foot-desc">폐어망·폐어구 제보·수거 플랫폼 · 해양 생태계 보호</div></div></div>
+    <div><div class="foot-links"><a href="#">이용안내</a><a href="#">보상정책</a><a href="#">개인정보처리방침</a><a href="#">문의하기</a></div><div class="foot-copy">© 2025 그물이어라. 바다를 지키는 시민의 플랫폼.</div></div>
+  </div>
+</footer>
+
+<div class="toast" id="toast">알림</div>
+
+<!-- ── ADMIN OVERLAY ── -->
+<div class="admin-overlay" id="adminOverlay">
+  <div class="admin-header">
+    <div class="admin-title">🔐 그물이어라 관리자 패널</div>
+    <div style="display:flex;gap:.6rem;align-items:center;">
+      <span style="font-size:.72rem;color:var(--txt3);">제보·인증 열람 및 AI 검증 결과 확인</span>
+      <button onclick="closeAdminPanel()" style="background:var(--bg-up);border:1px solid var(--border);color:var(--txt2);border-radius:8px;padding:.38em .85em;cursor:pointer;font-size:.85rem;font-family:var(--font-b);">✕ 닫기</button>
+    </div>
+  </div>
+  <div class="admin-body" id="adminBody">
+    <!-- 로그인 화면 -->
+    <div class="admin-login" id="adminLogin">
+      <div class="admin-login-box">
+        <div style="font-size:2.2rem;margin-bottom:.8rem;">🔐</div>
+        <div class="admin-login-title">관리자 로그인</div>
+        <div class="admin-login-sub">이 패널은 관리자 전용입니다.<br>비밀번호를 입력해 접속하세요.</div>
+        <div class="form-row" style="margin-top:1.2rem;">
+          <input class="form-in" type="password" id="adminPwInput" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter')adminLogin()" />
+        </div>
+        <button class="btn-sub" onclick="adminLogin()" style="margin-top:.4rem;">로그인</button>
+        <div id="adminLoginErr" style="color:#ef5350;font-size:.78rem;margin-top:.75rem;display:none;">⚠️ 비밀번호가 올바르지 않습니다.</div>
+      </div>
+    </div>
+    <!-- 대시보드 (로그인 후) -->
+    <div id="adminDash" style="display:none;">
+      <div class="admin-stats-bar" id="adminStatsBar"></div>
+      <div class="admin-tabs">
+        <button class="admin-tab on" onclick="switchAdminTab('reports',this)">📋 제보 현황</button>
+        <button class="admin-tab" onclick="switchAdminTab('certs',this)">✅ 수거 인증</button>
+      </div>
+      <div class="admin-panel on" id="admin-panel-reports">
+        <div id="adminReportsList"></div>
+      </div>
+      <div class="admin-panel" id="admin-panel-certs">
+        <div id="adminCertsList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── LIGHTBOX ── -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <img class="lightbox-img" id="lightboxImg" src="" alt="사진 보기" />
+  <button class="lightbox-close" onclick="event.stopPropagation();closeLightbox()">✕</button>
+  <div class="lightbox-caption" id="lightboxCaption"></div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div class="modal-hd"><div class="modal-ttl" id="modalTitle">키링 신청</div><button class="modal-close" onclick="closeModal()">✕ 닫기</button></div>
+    <div class="form-row"><label class="form-lbl">수령자 성함</label><input class="form-in" type="text" placeholder="이름을 입력하세요" /></div>
+    <div class="form-row"><label class="form-lbl">연락처</label><input class="form-in" type="tel" placeholder="010-0000-0000" /></div>
+    <div class="form-row"><label class="form-lbl">배송 주소</label><input class="form-in" type="text" placeholder="도로명 주소" style="margin-bottom:.5rem;" /><input class="form-in" type="text" placeholder="상세 주소" /></div>
+    <div style="background:var(--ocean-d);border:1px solid rgba(26,143,227,.25);border-radius:10px;padding:.9rem;font-size:.78rem;color:var(--txt2);line-height:1.65;margin-bottom:1.2rem;">📦 신청 후 <strong style="color:var(--ocean);">14일 이내</strong> 배송됩니다.</div>
+    <button class="btn-sub" onclick="submitKeyring()">🎁 신청하기</button>
+  </div>
+</div>
+
+<script>
+const REPORTS=[
+  {id:'GN-001',name:'제주 서귀포 강정마을 앞바다',lat:33.245,lng:126.502,status:'found',risk:'high',type:'유자망',date:'2025.05.20',reporter:'해양지킴이',weight:'약 50kg 추정',desc:'수중 암초에 걸린 대형 유자망 발견. 해양생물 혼획 흔적 다수.',emoji:'🎣'},
+  {id:'GN-002',name:'부산 기장군 공수마을 해역',lat:35.241,lng:129.222,status:'requested',risk:'high',type:'통발',date:'2025.05.18',reporter:'바다사랑123',weight:'약 30kg 추정',desc:'해저에 방치된 통발 무더기. 게와 소라 혼획 중.',emoji:'🦀'},
+  {id:'GN-003',name:'경남 통영 욕지도 북쪽',lat:34.619,lng:128.260,status:'progress',risk:'medium',type:'자망',date:'2025.05.15',reporter:'바다지킴이',weight:'약 80kg 추정',desc:'욕지도 북쪽 수심 15m 자망 방치. 수거팀 출동 예정.',emoji:'🌊'},
+  {id:'GN-004',name:'전남 여수 거문도 근해',lat:34.028,lng:127.308,status:'done',risk:'low',type:'연승',date:'2025.05.10',reporter:'섬사람',weight:'약 20kg',desc:'연승 수거 완료. 지역 어민 협조로 신속 처리.',emoji:'⚓'},
+  {id:'GN-005',name:'강원 강릉 주문진 앞바다',lat:37.843,lng:128.844,status:'found',risk:'medium',type:'안강망',date:'2025.05.22',reporter:'동해바다',weight:'약 40kg 추정',desc:'주문진항 북쪽 해역 안강망 방치. 물고기 혼획 지속 중.',emoji:'🐟'},
+  {id:'GN-006',name:'경북 포항 구룡포 앞바다',lat:35.997,lng:129.567,status:'requested',risk:'high',type:'자망',date:'2025.05.21',reporter:'포항시민',weight:'약 60kg 추정',desc:'구룡포항 인근 수심 20m 자망 대량 방치. 즉각 수거 필요.',emoji:'🎣'},
+  {id:'GN-007',name:'전남 완도 소안도 근해',lat:34.167,lng:126.744,status:'progress',risk:'medium',type:'통발',date:'2025.05.14',reporter:'완도사람',weight:'약 25kg 추정',desc:'소안도 서쪽 해역 통발 8개 방치 확인. 수거 진행 중.',emoji:'🦑'},
+  {id:'GN-008',name:'제주 한림읍 비양도 인근',lat:33.418,lng:126.238,status:'done',risk:'low',type:'유자망',date:'2025.05.05',reporter:'제주해녀',weight:'약 35kg',desc:'해녀 조합 협력으로 유자망 완전 수거 완료.',emoji:'🤿'},
+];
+const SC={found:'#42a5f5',requested:'#ff9800',progress:'#ffd54f',done:'#66bb6a'};
+const SL={found:'발견됨',requested:'수거요청',progress:'수거진행중',done:'처리완료'};
+const SK={found:'found',requested:'requested',progress:'progress',done:'done'};
+const RL={high:'높음',medium:'보통',low:'낮음'};
+
+const SPECIES=[
+  {name:'상괭이',sci:'Neophocaena asiaeorientalis',emoji:'🐬',gradient:'linear-gradient(135deg,#0a2035,#123258)',status:'멸종위기 II급',sc:'endangered',desc:'우리나라 연근해에만 서식하는 유일한 토종 소형 고래류. 등지느러미가 없고 회백색 피부가 특징이며 복잡한 어구에 쉽게 혼획됩니다.',impact:'연간 약 1,000마리 이상 폐어망 혼획'},
+  {name:'바다거북',sci:'Chelonia mydas',emoji:'🐢',gradient:'linear-gradient(135deg,#061a14,#0d3a28)',status:'멸종위기 I급',sc:'critical',desc:'국내 해역에서 발견되는 대표적인 해양 파충류. 산소 호흡을 해야 하기 때문에 폐어망에 얽히면 익사하는 경우가 많습니다.',impact:'매년 수백 마리 부상·사망'},
+  {name:'남방큰돌고래',sci:'Tursiops aduncus',emoji:'🐬',gradient:'linear-gradient(135deg,#060e22,#0e2248)',status:'멸종위기 II급',sc:'endangered',desc:'제주도 연안에 상주하는 멸종위기종. 국내 유일의 상주 돌고래 집단으로 약 100여 개체만 생존해 있습니다.',impact:'집단 100여 개체 전체가 위협'},
+];
+const HOW_STEPS=[
+  {emoji:'🔍',num:'01',title:'폐어망 발견',desc:'바다나 해안에서 방치된 폐어망·폐어구를 발견합니다.'},
+  {emoji:'📍',num:'02',title:'위치 제보',desc:'플랫폼에 위치·사진·종류를 입력해 즉시 신고합니다.'},
+  {emoji:'🧹',num:'03',title:'수거 인증',desc:'직접 수거 후 전·후 사진으로 인증을 제출합니다.'},
+  {emoji:'💰',num:'04',title:'보상 지급',desc:'담당 기관 검토 후 kg당 보상금이 지급됩니다.'},
+  {emoji:'🎁',num:'05',title:'키링 리워드',desc:'기준 달성 시 해양생물 키링을 무료로 받으세요!'},
+];
+const KEYRINGS=[
+  {id:'kr-1',name:'상괭이 키링',emoji:'🐬',gradient:'linear-gradient(145deg,#0d2a45,#1a5070)',desc:'폐어망 피해를 가장 많이 입는 상괭이 모티브 키링. 친환경 소재로 제작.',stock:47},
+  {id:'kr-2',name:'바다거북 키링',emoji:'🐢',gradient:'linear-gradient(145deg,#0a2018,#143d28)',desc:'해양 쓰레기 피해 상징인 바다거북 청록색 계열 키링. 재활용 플라스틱 소재.',stock:32},
+  {id:'kr-3',name:'남방큰돌고래 키링',emoji:'🐬',gradient:'linear-gradient(145deg,#070e22,#122040)',desc:'제주 해양 생태계 보호 상징 남방큰돌고래 키링. 밝고 활동적인 디자인.',stock:28},
+];
+const CERT_LIST=[
+  {id:'CT-005',loc:'전남 완도 소안도',kg:'18.5',date:'2025.05.20',status:'review',reward:9250},
+  {id:'CT-004',loc:'경남 통영 욕지도',kg:'22.0',date:'2025.05.12',status:'ok',reward:11000},
+  {id:'CT-003',loc:'제주 서귀포 강정',kg:'15.0',date:'2025.04.28',status:'paid',reward:7500},
+  {id:'CT-002',loc:'부산 기장 공수',kg:'8.5',date:'2025.04.10',status:'ok',reward:4250},
+];
+const BADGES=[
+  {icon:'🎣',name:'첫 제보자',desc:'첫 폐어망 제보',earned:true,date:'2025.03.10'},
+  {icon:'📡',name:'열심 제보자',desc:'5회 이상 제보',earned:true,date:'2025.04.15'},
+  {icon:'💪',name:'첫 수거자',desc:'첫 번째 수거 인증',earned:true,date:'2025.03.22'},
+  {icon:'🦸',name:'바다 영웅',desc:'5회 수거 승인',earned:true,date:'2025.05.01'},
+  {icon:'⚖️',name:'10kg 클럽',desc:'누적 10kg 달성',earned:true,date:'2025.04.28'},
+  {icon:'🏆',name:'50kg 챔피언',desc:'누적 50kg 달성',earned:false,date:null},
+];
+const HIST_R=[
+  {id:'GN-R12',loc:'경남 통영 산양면 앞바다',type:'자망',date:'2025.05.17',status:'requested'},
+  {id:'GN-R11',loc:'전남 여수 화정면 해역',type:'통발',date:'2025.05.09',status:'progress'},
+  {id:'GN-R10',loc:'제주 한림 비양도',type:'유자망',date:'2025.04.25',status:'done'},
+  {id:'GN-R09',loc:'부산 기장 대변항',type:'연승',date:'2025.04.12',status:'done'},
+];
+const HIST_C=[
+  {id:'CT-005',loc:'전남 완도 소안도',kg:'18.5',date:'2025.05.20',status:'review',reward:9250},
+  {id:'CT-004',loc:'경남 통영 욕지도',kg:'22.0',date:'2025.05.12',status:'ok',reward:11000},
+  {id:'CT-003',loc:'제주 서귀포 강정',kg:'15.0',date:'2025.04.28',status:'paid',reward:7500},
+  {id:'CT-002',loc:'부산 기장 공수',kg:'8.5',date:'2025.04.10',status:'ok',reward:4250},
+];
+
+let isDark=true;
+function toggleTheme(){isDark=!isDark;document.documentElement.setAttribute('data-theme',isDark?'dark':'light');document.getElementById('themeBtn').textContent=isDark?'🌙':'☀️';}
+window.addEventListener('scroll',()=>document.getElementById('nav').classList.toggle('scrolled',scrollY>50));
+function goTo(id){document.getElementById(id).scrollIntoView({behavior:'smooth'});}
+
+function animCount(el,target,dur){
+  let s=null;
+  const step=ts=>{if(!s)s=ts;const p=Math.min((ts-s)/dur,1),e=1-Math.pow(1-p,3);el.textContent=Math.floor(e*target).toLocaleString();if(p<1)requestAnimationFrame(step);else el.textContent=target.toLocaleString();};
+  requestAnimationFrame(step);
+}
+
+const io=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('vis');}),{threshold:0.1});
+document.querySelectorAll('.rv').forEach(el=>io.observe(el));
+
+function createBubbles(){const h=document.querySelector('.hero');for(let i=0;i<14;i++){const b=document.createElement('div');b.className='bubble';const sz=4+Math.random()*9;b.style.cssText=`left:${Math.random()*100}%;bottom:${5+Math.random()*30}%;width:${sz}px;height:${sz}px;animation-delay:${Math.random()*8}s;animation-duration:${5+Math.random()*5}s;`;h.appendChild(b);}}
+
+function buildSpecies(){const g=document.getElementById('speciesGrid');SPECIES.forEach((s,i)=>{g.innerHTML+=`<div class="sp-card rv d${i+2}"><div class="sp-img" style="background:${s.gradient};"><span style="position:relative;z-index:1;">${s.emoji}</span></div><div class="sp-body"><div class="sp-status ${s.sc}">${s.status}</div><div class="sp-name">${s.name}</div><div class="sp-sci">${s.sci}</div><div class="sp-desc">${s.desc}</div><div class="sp-impact">⚠️ <strong>주요 피해:</strong> ${s.impact}</div></div></div>`;});}
+
+function buildHowTo(){const f=document.getElementById('howFlow');HOW_STEPS.forEach((s,i)=>{f.innerHTML+=`<div class="how-step"><div class="how-num">${s.emoji}</div><div><div class="how-ttl">${s.num} ${s.title}</div><div class="how-desc">${s.desc}</div></div></div>`;if(i<HOW_STEPS.length-1)f.innerHTML+=`<div class="how-arrow">→</div>`;});}
+
+let leafMap,allMarkers=[],curFilter='all';
+function initMap(){
+  leafMap=L.map('map',{zoomControl:false}).setView([35.5,128.0],7);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',maxZoom:19}).addTo(leafMap);
+  L.control.zoom({position:'topright'}).addTo(leafMap);
+  REPORTS.forEach(r=>{
+    const col=SC[r.status];
+    const pulse=L.circleMarker([r.lat,r.lng],{radius:20,fillColor:col,color:col,weight:0,fillOpacity:.12}).addTo(leafMap);
+    const m=L.circleMarker([r.lat,r.lng],{radius:9,fillColor:col,color:'#020c18',weight:2,fillOpacity:.88}).addTo(leafMap);
+    const pop=`<div class="pop-body"><div class="pop-id">${r.id}</div><div class="pop-name">${r.name}</div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.55em;"><span class="sbadge ${SK[r.status]}">${SL[r.status]}</span><span style="font-size:.7rem;color:var(--txt3);">${r.date}</span></div><div class="pop-row"><span class="pop-lbl">종류</span><span class="pop-val">${r.type}</span></div><div class="pop-row"><span class="pop-lbl">위험도</span><span class="pop-val">${RL[r.risk]}</span></div><div class="pop-row"><span class="pop-lbl">추정 무게</span><span class="pop-val">${r.weight}</span></div><div class="pop-row"><span class="pop-lbl">제보자</span><span class="pop-val">${r.reporter}</span></div><div style="margin-top:.6em;font-size:.72rem;color:var(--txt2);line-height:1.5;">${r.desc}</div></div>`;
+    m.bindPopup(pop,{maxWidth:240});
+    m.on('click',()=>selectReport(r.id));
+    allMarkers.push({r,m,pulse});
+  });
+  buildSidebar();
+}
+function selectReport(id){allMarkers.forEach(({r,m})=>{if(r.id===id)m.openPopup();});document.querySelectorAll('.pt-card').forEach(c=>c.classList.toggle('on',c.dataset.id===id));}
+function buildSidebar(){const list=document.getElementById('ptList');list.innerHTML='';const pts=curFilter==='all'?REPORTS:REPORTS.filter(r=>r.status===curFilter);pts.forEach(r=>{list.innerHTML+=`<div class="pt-card" data-id="${r.id}" onclick="selectReport('${r.id}')"><div class="pt-hd"><span class="pt-id">${r.id}</span><span class="sbadge ${SK[r.status]}">${SL[r.status]}</span></div><div class="pt-name">${r.name}</div><div class="pt-type">${r.emoji} ${r.type} · ${r.date}</div></div>`;});}
+function applyFilter(f){curFilter=f;document.querySelectorAll('.flt-btn').forEach(b=>b.classList.remove('on'));const cls={all:'all',found:'found',requested:'req',progress:'prog',done:'done'}[f];const btn=document.querySelector(`.flt-btn.${cls}`);if(btn)btn.classList.add('on');allMarkers.forEach(({r,m,pulse})=>{const show=f==='all'||r.status===f;if(show){m.addTo(leafMap);pulse.addTo(leafMap);}else{leafMap.removeLayer(m);leafMap.removeLayer(pulse);}});buildSidebar();}
+
+function initCharts(){
+  Chart.defaults.color='#6b8fa8';Chart.defaults.borderColor='rgba(255,255,255,.05)';
+  new Chart(document.getElementById('actBarChart'),{type:'bar',data:{labels:['12월','1월','2월','3월','4월','5월'],datasets:[{label:'제보',data:[2,3,1,4,3,5],backgroundColor:'rgba(26,143,227,.65)',borderColor:'#1a8fe3',borderWidth:1,borderRadius:5},{label:'수거',data:[1,2,1,3,2,4],backgroundColor:'rgba(0,179,159,.55)',borderColor:'#00b39f',borderWidth:1,borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{boxWidth:10,font:{size:11}}}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'}},y:{grid:{color:'rgba(255,255,255,.04)'},beginAtZero:true,ticks:{stepSize:2}}}}});
+  new Chart(document.getElementById('actDonutChart'),{type:'doughnut',data:{labels:['유자망','자망','통발','연승','기타'],datasets:[{data:[32,28,22,12,6],backgroundColor:['rgba(26,143,227,.8)','rgba(0,179,159,.8)','rgba(255,107,53,.8)','rgba(255,213,79,.8)','rgba(102,187,106,.8)'],borderColor:['#1a8fe3','#00b39f','#ff6b35','#ffd54f','#66bb6a'],borderWidth:1.5,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{padding:14,boxWidth:10,font:{size:11}}}},cutout:'62%'}});
+}
+
+function buildBadges(){const g=document.getElementById('badgeGrid');BADGES.forEach(b=>{g.innerHTML+=`<div class="badge-card ${b.earned?'earned':'locked'}"><span class="badge-icon">${b.earned?b.icon:'🔒'}</span><div class="badge-name">${b.name}</div><div class="badge-desc">${b.desc}</div>${b.earned?`<div class="badge-date">${b.date}</div>`:''}</div>`;});}
+
+function buildHistory(){
+  const re=document.getElementById('historyReports');HIST_R.forEach(h=>{re.innerHTML+=`<div class="act-history-item"><div style="flex:1;"><div class="ahi-id">${h.id}</div><div class="ahi-loc">${h.loc}</div><div class="ahi-meta">🎣 ${h.type} · 📅 ${h.date}</div></div><div><span class="sbadge ${SK[h.status]}">${SL[h.status]}</span></div></div>`;});
+  const ce=document.getElementById('historyCollections');const cl={review:'cst-review',ok:'cst-ok',rej:'cst-rej',paid:'cst-paid'};const ll={review:'검토중',ok:'승인',rej:'반려',paid:'지급완료'};HIST_C.forEach(h=>{ce.innerHTML+=`<div class="act-history-item"><div style="flex:1;"><div class="ahi-id">${h.id}</div><div class="ahi-loc">${h.loc}</div><div class="ahi-meta">⚖️ ${h.kg}kg · 📅 ${h.date}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:.3em;"><span class="cert-status-badge ${cl[h.status]}">${ll[h.status]}</span><span style="font-size:.78rem;font-weight:700;color:var(--teal);">+${h.reward.toLocaleString()}원</span></div></div>`;});
+}
+
+function buildCertList(){const el=document.getElementById('certList');const cl={review:'cst-review',ok:'cst-ok',rej:'cst-rej',paid:'cst-paid'};const ll={review:'검토중',ok:'승인',rej:'반려',paid:'지급완료'};CERT_LIST.forEach(c=>{el.innerHTML+=`<div class="cert-item"><div><div class="cert-item-id">${c.id}</div><div class="cert-item-loc">${c.loc}</div><div class="cert-item-info">⚖️ ${c.kg}kg · 📅 ${c.date}</div></div><div class="cert-item-right"><span class="cert-status-badge ${cl[c.status]}">${ll[c.status]}</span><div class="cert-reward">+${c.reward.toLocaleString()}원</div></div></div>`;});}
+
+function buildKeyrings(){const g=document.getElementById('keyringGrid');KEYRINGS.forEach((k,i)=>{g.innerHTML+=`<div class="kr-card rv d${i+2}"><div class="kr-img" style="background:${k.gradient};"><span style="position:relative;z-index:1;">${k.emoji}</span></div><div class="kr-body"><div class="kr-name">${k.name}</div><div class="kr-desc">${k.desc}</div><div class="kr-stock"><div class="kr-stock-dot"></div>재고 ${k.stock}개 남음</div><button class="btn-kr eligible" onclick="openKeyringModal('${k.id}','${k.name}')">🎁 신청하기</button></div></div>`;});}
+
+function switchTab(tab,btn){document.querySelectorAll('.act-tab').forEach(b=>b.classList.remove('on'));btn.classList.add('on');document.querySelectorAll('.act-panel').forEach(p=>p.classList.remove('on'));document.getElementById(`panel-${tab}`).classList.add('on');}
+function openKeyringModal(id,name){document.getElementById('modalTitle').textContent=`🎁 ${name} 신청`;document.getElementById('modalBg').classList.add('open');}
+function closeModal(){document.getElementById('modalBg').classList.remove('open');}
+document.getElementById('modalBg').addEventListener('click',function(e){if(e.target===this)closeModal();});
+function submitKeyring(){closeModal();showToast('✅ 키링 신청이 접수되었습니다!');}
+function setSev(btn){btn.closest('.sev-row').querySelectorAll('.sev-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');}
+function triggerUpload(id){document.getElementById(id).click();}
+function showFileName(input,nameId){if(input.files.length>0)document.getElementById(nameId).textContent='✅ '+input.files[0].name;}
+function showPhotoPreview(input,prevId){
+  if(!input.files||!input.files[0])return;
+  const reader=new FileReader();
+  reader.onload=e=>{const p=document.getElementById(prevId);if(p){p.innerHTML=`<img src="${e.target.result}" alt="미리보기"/>`;p.classList.add('show');}};
+  reader.readAsDataURL(input.files[0]);
+}
+function getGPS(){if(!navigator.geolocation){showToast('⚠️ 위치 서비스 미지원 브라우저입니다.');return;}navigator.geolocation.getCurrentPosition(p=>{document.getElementById('rpt-loc').value=`위도 ${p.coords.latitude.toFixed(5)}, 경도 ${p.coords.longitude.toFixed(5)}`;showToast('📍 현재 위치가 입력되었습니다.');},()=>showToast('⚠️ 위치 정보를 가져올 수 없습니다.'));}
+
+/* ── 이미지 압축 (저장 공간 절약) ── */
+async function compressImage(file,maxW=800,maxH=800,q=0.75){
+  return new Promise(resolve=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        let w=img.width,h=img.height;
+        if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+        if(h>maxH){w=Math.round(w*maxH/h);h=maxH;}
+        const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(cv.toDataURL('image/jpeg',q));
+      };
+      img.onerror=()=>resolve(e.target.result);
+      img.src=e.target.result;
+    };
+    reader.onerror=()=>resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ── 제보 접수 (사진 저장 포함) ── */
+async function submitReport(){
+  const loc=document.getElementById('rpt-loc').value.trim();
+  if(!loc){showToast('⚠️ 위치를 입력해 주세요.');return;}
+  const photoFile=document.getElementById('rpt-photo').files[0]||null;
+  let photoB64=null;
+  if(photoFile)try{photoB64=await compressImage(photoFile);}catch(e){}
+  const reports=JSON.parse(localStorage.getItem('gmul_reports')||'[]');
+  const id='GN-U'+String(Date.now()).slice(-5);
+  const now=new Date();
+  const ds=`${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`;
+  const sel=document.querySelector('#report-sec .form-sel');
+  reports.push({id,loc,photoB64,date:ds,status:'pending',type:sel?sel.value||'기타':'기타'});
+  try{localStorage.setItem('gmul_reports',JSON.stringify(reports));}
+  catch(e){showToast('⚠️ 저장 용량 초과. 사진 크기를 줄여 주세요.');return;}
+  showToast('🎣 제보가 접수되었습니다! 관리자가 검토합니다.');
+}
+
+/* ── 수거 인증 제출 (AI 분석 포함) ── */
+async function submitCert(){
+  const loc=document.getElementById('cert-loc').value.trim();
+  const kg=document.getElementById('cert-kg').value;
+  if(!loc||!kg){showToast('⚠️ 수거 위치와 수거량을 입력해 주세요.');return;}
+  const bFile=document.getElementById('cert-before').files[0]||null;
+  const aFile=document.getElementById('cert-after').files[0]||null;
+  let beforeB64=null,afterB64=null;
+  if(bFile)try{beforeB64=await compressImage(bFile);}catch(e){}
+  if(aFile)try{afterB64=await compressImage(aFile);}catch(e){}
+  const certs=JSON.parse(localStorage.getItem('gmul_certs')||'[]');
+  const id='CT-U'+String(Date.now()).slice(-5);
+  const now=new Date();
+  const ds=`${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`;
+  const certData={id,loc,kg,beforeB64,afterB64,date:ds,status:'review',aiResult:null};
+  certs.push(certData);
+  const certIndex=certs.length-1;
+  try{localStorage.setItem('gmul_certs',JSON.stringify(certs));}
+  catch(e){showToast('⚠️ 저장 용량 초과. 사진 크기를 줄여 주세요.');return;}
+  showToast('✅ 수거 인증 제출 완료! AI 분석을 시작합니다...');
+  await runAIAnalysis(afterB64||beforeB64,certIndex);
+}
+
+/* ── AI 분석 (Canvas 기반 시뮬레이션) ── */
+async function runAIAnalysis(imageB64,certIndex){
+  const aiBox=document.getElementById('certAiBox');
+  const aiResult=document.getElementById('certAiResult');
+  if(!aiBox)return;
+  aiBox.classList.add('show');
+  aiResult.className='ai-result';aiResult.innerHTML='';
+  const steps=aiBox.querySelectorAll('.ai-step');
+  const bar=document.getElementById('certAiBar');
+  bar.style.width='0%';
+  steps.forEach(s=>{s.className='ai-step';});
+  const waits=[500,900,800,800,700];
+  for(let i=0;i<steps.length;i++){
+    await new Promise(r=>setTimeout(r,waits[i]));
+    if(i>0){steps[i-1].classList.remove('active');steps[i-1].classList.add('done');}
+    steps[i].classList.add('active');
+    bar.style.width=`${(i+1)*20}%`;
+  }
+  await new Promise(r=>setTimeout(r,500));
+  steps[steps.length-1].classList.remove('active');
+  steps[steps.length-1].classList.add('done');
+  bar.style.width='100%';
+  let confidence=74+Math.floor(Math.random()*20);
+  if(imageB64){
+    try{
+      const img=new Image();img.src=imageB64;
+      await new Promise(r=>{img.onload=r;img.onerror=r;});
+      const cv=document.createElement('canvas');cv.width=64;cv.height=48;
+      const ctx=cv.getContext('2d');ctx.drawImage(img,0,0,64,48);
+      const d=ctx.getImageData(0,0,64,48).data;
+      let gS=0,bS=0,px=d.length/4;
+      for(let i=0;i<d.length;i+=4){gS+=d[i+1];bS+=d[i+2];}
+      const adj=Math.floor(((gS+bS)/(px*510))*18)-4;
+      confidence=Math.min(96,Math.max(61,confidence+adj));
+    }catch(e){}
+  }
+  const passed=confidence>=75;
+  await new Promise(r=>setTimeout(r,300));
+  const details=passed
+    ?[`✅ 그물망 구조 패턴 감지됨`,`✅ 해양 환경 배경 확인됨`,`✅ 수거 전·후 상태 변화 감지됨`,`ℹ️ 신뢰도 점수: ${confidence}% (기준: 75%)`]
+    :[`⚠️ 폐어망 패턴 감지 불명확 (신뢰도: ${confidence}%)`,`ℹ️ 추가 사진 또는 근접 촬영을 권장합니다`,`ℹ️ 관리자가 수동으로 검토합니다`];
+  aiResult.className=`ai-result ${passed?'ok':'fail'}`;
+  aiResult.innerHTML=`
+    <div class="ai-result-header">
+      <span class="ai-result-icon">${passed?'✅':'⚠️'}</span>
+      <span class="ai-result-title">${passed?'AI 검증 통과':'AI 검증 주의'}</span>
+      <span class="ai-confidence" style="color:${passed?'#66bb6a':'#ff9800'};">${confidence}%</span>
+    </div>
+    <div class="ai-result-body">${details.join('<br>')}</div>
+    <div class="ai-verdict ${passed?'ok':'fail'}">${passed?'🎉 수거 인증이 자동 승인 대기 중입니다.':'🔍 관리자 수동 검토가 진행됩니다.'}</div>`;
+  try{
+    const certs=JSON.parse(localStorage.getItem('gmul_certs')||'[]');
+    if(certs[certIndex]){certs[certIndex].aiResult={passed,confidence,details};localStorage.setItem('gmul_certs',JSON.stringify(certs));}
+  }catch(e){}
+}
+
+/* ── 관리자 패널 ── */
+let adminLoggedIn=false;
+function openAdminPanel(){
+  document.getElementById('adminOverlay').classList.add('open');
+  if(adminLoggedIn)loadAdminData();
+}
+function closeAdminPanel(){document.getElementById('adminOverlay').classList.remove('open');}
+function adminLogin(){
+  const pw=document.getElementById('adminPwInput').value;
+  const err=document.getElementById('adminLoginErr');
+  if(pw==='gmul2025'){
+    adminLoggedIn=true;
+    document.getElementById('adminLogin').style.display='none';
+    document.getElementById('adminDash').style.display='block';
+    loadAdminData();
+  }else{
+    err.style.display='block';
+    document.getElementById('adminPwInput').value='';
+    document.getElementById('adminPwInput').focus();
+  }
+}
+function switchAdminTab(tab,btn){
+  document.querySelectorAll('.admin-tab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.querySelectorAll('.admin-panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('admin-panel-'+tab).classList.add('on');
+}
+function loadAdminData(){
+  const reports=JSON.parse(localStorage.getItem('gmul_reports')||'[]');
+  const certs=JSON.parse(localStorage.getItem('gmul_certs')||'[]');
+  const sBar=document.getElementById('adminStatsBar');
+  sBar.innerHTML=`
+    <div class="admin-stat"><div class="admin-stat-val">${reports.length}</div><div class="admin-stat-lbl">신규 제보</div></div>
+    <div class="admin-stat"><div class="admin-stat-val">${certs.length}</div><div class="admin-stat-lbl">수거 인증</div></div>
+    <div class="admin-stat"><div class="admin-stat-val" style="color:#66bb6a;">${certs.filter(c=>c.aiResult&&c.aiResult.passed).length}</div><div class="admin-stat-lbl">AI 자동 통과</div></div>
+    <div class="admin-stat"><div class="admin-stat-val" style="color:var(--teal);">${[...reports,...certs].filter(x=>x.status==='approved').length}</div><div class="admin-stat-lbl">관리자 승인</div></div>`;
+  const sc={pending:'var(--txt3)',approved:'#66bb6a',rejected:'#ef5350',review:'#ff9800'};
+  const sl={pending:'대기중',approved:'승인',rejected:'반려',review:'검토중'};
+  const rList=document.getElementById('adminReportsList');
+  if(!reports.length){
+    rList.innerHTML='<div class="admin-empty">📭 아직 접수된 제보가 없습니다.<br><small style="font-size:.74rem;">제보 폼에서 사진을 첨부해 제보하면 여기에 표시됩니다.</small></div>';
+  }else{
+    rList.innerHTML=reports.map((r,i)=>`
+      <div class="admin-card">
+        <div class="admin-thumb" onclick="showReportPhoto(${i})" title="사진 크게 보기">
+          ${r.photoB64?`<img src="${r.photoB64}" alt="제보 사진"/>`:'<span style="font-size:1.6rem;">📷</span>'}
+        </div>
+        <div style="min-width:0;">
+          <div class="admin-info-id">${r.id}</div>
+          <div class="admin-info-loc">${r.loc}</div>
+          <div class="admin-info-meta">🎣 ${r.type} &nbsp;·&nbsp; 📅 ${r.date}<br>상태: <span style="color:${sc[r.status]||'var(--txt2)'};">${sl[r.status]||r.status}</span></div>
+        </div>
+        <div class="admin-actions">
+          <button class="btn-approve" onclick="adminApproveReport(${i})">✅ 승인</button>
+          <button class="btn-reject" onclick="adminRejectReport(${i})">❌ 반려</button>
+          ${r.photoB64?`<button class="btn-view-photo" onclick="showReportPhoto(${i})">🔍 사진</button>`:''}
+        </div>
+      </div>`).join('');
+  }
+  const cList=document.getElementById('adminCertsList');
+  if(!certs.length){
+    cList.innerHTML='<div class="admin-empty">📭 아직 제출된 수거 인증이 없습니다.<br><small style="font-size:.74rem;">수거 인증 폼에서 사진을 첨부해 제출하면 여기에 표시됩니다.</small></div>';
+  }else{
+    cList.innerHTML=certs.map((c,i)=>{
+      const ai=c.aiResult;
+      const aiHtml=ai
+        ?`<div class="admin-ai-box"><div class="admin-ai-lbl">AI 분석 결과</div>
+           <span style="color:${ai.passed?'#66bb6a':'#ff9800'};font-weight:700;">${ai.passed?'✅ AI 통과':'⚠️ 수동 검토 필요'}</span> &nbsp;·&nbsp; 신뢰도 ${ai.confidence}%<br>
+           <span style="font-size:.71rem;color:var(--txt2);">${ai.details&&ai.details[0]||''}</span></div>`
+        :`<div class="admin-ai-box"><div class="admin-ai-lbl">AI 분석</div><span style="color:var(--txt3);">분석 결과 없음</span></div>`;
+      const thumb=c.afterB64||c.beforeB64||null;
+      return `
+        <div class="admin-card">
+          <div class="admin-thumb" onclick="showCertPhoto(${i})" title="사진 크게 보기">
+            ${thumb?`<img src="${thumb}" alt="수거 사진"/>`:'<span style="font-size:1.6rem;">📸</span>'}
+          </div>
+          <div style="min-width:0;">
+            <div class="admin-info-id">${c.id}</div>
+            <div class="admin-info-loc">${c.loc}</div>
+            <div class="admin-info-meta">⚖️ ${c.kg}kg &nbsp;·&nbsp; 📅 ${c.date}<br>상태: <span style="color:${sc[c.status]||'var(--txt2)'};">${sl[c.status]||c.status}</span></div>
+            ${aiHtml}
+          </div>
+          <div class="admin-actions">
+            <button class="btn-approve" onclick="adminApproveCert(${i})">✅ 승인</button>
+            <button class="btn-reject" onclick="adminRejectCert(${i})">❌ 반려</button>
+            ${thumb?`<button class="btn-view-photo" onclick="showCertPhoto(${i})">🔍 사진</button>`:''}
+          </div>
+        </div>`;
+    }).join('');
+  }
+}
+function showReportPhoto(i){
+  const r=JSON.parse(localStorage.getItem('gmul_reports')||'[]')[i];
+  if(r&&r.photoB64)showLightbox(r.photoB64,r.id+' — 제보 사진');
+  else showToast('⚠️ 첨부된 사진이 없습니다.');
+}
+function showCertPhoto(i){
+  const c=JSON.parse(localStorage.getItem('gmul_certs')||'[]')[i];
+  if(c&&(c.afterB64||c.beforeB64))showLightbox(c.afterB64||c.beforeB64,c.id+' — 수거 사진');
+  else showToast('⚠️ 첨부된 사진이 없습니다.');
+}
+function adminApproveReport(i){const d=JSON.parse(localStorage.getItem('gmul_reports')||'[]');if(d[i])d[i].status='approved';localStorage.setItem('gmul_reports',JSON.stringify(d));loadAdminData();showToast('✅ 제보를 승인했습니다.');}
+function adminRejectReport(i){const d=JSON.parse(localStorage.getItem('gmul_reports')||'[]');if(d[i])d[i].status='rejected';localStorage.setItem('gmul_reports',JSON.stringify(d));loadAdminData();showToast('❌ 제보를 반려했습니다.');}
+function adminApproveCert(i){const d=JSON.parse(localStorage.getItem('gmul_certs')||'[]');if(d[i])d[i].status='approved';localStorage.setItem('gmul_certs',JSON.stringify(d));loadAdminData();showToast('✅ 수거 인증을 승인했습니다.');}
+function adminRejectCert(i){const d=JSON.parse(localStorage.getItem('gmul_certs')||'[]');if(d[i])d[i].status='rejected';localStorage.setItem('gmul_certs',JSON.stringify(d));loadAdminData();showToast('❌ 수거 인증을 반려했습니다.');}
+
+/* ── 라이트박스 ── */
+function showLightbox(src,caption){
+  if(!src){showToast('⚠️ 사진이 없습니다.');return;}
+  document.getElementById('lightboxImg').src=src;
+  document.getElementById('lightboxCaption').textContent=caption||'';
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox(){
+  document.getElementById('lightbox').classList.remove('open');
+  setTimeout(()=>document.getElementById('lightboxImg').src='',300);
+}
+
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);}
+
+document.getElementById('mapOverlay').addEventListener('click',function(){this.classList.add('gone');if(leafMap)leafMap.scrollWheelZoom.enable();});
+document.querySelectorAll('.flt-btn').forEach(btn=>btn.addEventListener('click',()=>applyFilter(btn.dataset.filter)));
+
+window.addEventListener('load',()=>{
+  createBubbles();buildSpecies();buildHowTo();buildCertList();buildBadges();buildHistory();buildKeyrings();
+  initMap();initCharts();
+  if(leafMap)leafMap.scrollWheelZoom.disable();
+  setTimeout(()=>{
+    animCount(document.getElementById('cnt1'),1284,1600);
+    animCount(document.getElementById('cnt2'),847,1400);
+    animCount(document.getElementById('cnt3'),23,1200);
+    animCount(document.getElementById('cnt4'),3892,1800);
+    animCount(document.getElementById('cnt5'),384,1500);
+    animCount(document.getElementById('my-rpt'),12,900);
+    animCount(document.getElementById('my-col'),9,900);
+    animCount(document.getElementById('my-kg'),69,1000);
+    animCount(document.getElementById('my-pending'),9250,1100);
+    animCount(document.getElementById('my-total'),34500,1300);
+  },700);
+  setTimeout(()=>document.querySelectorAll('.rv').forEach(el=>io.observe(el)),100);
+});
+</script>
+</body>
+</html>
